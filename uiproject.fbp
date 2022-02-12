@@ -160,6 +160,21 @@
                         <property name="help"></property>
                         <property name="id">wxID_ANY</property>
                         <property name="kind">wxITEM_NORMAL</property>
+                        <property name="label">&amp;Change Your Address...</property>
+                        <property name="name">m_menuChangeYourAddress</property>
+                        <property name="permission">none</property>
+                        <property name="shortcut"></property>
+                        <property name="unchecked_bitmap"></property>
+                        <event name="OnMenuSelection">OnMenuOptionsChangeYourAddress</event>
+                        <event name="OnUpdateUI"></event>
+                    </object>
+                    <object class="wxMenuItem" expanded="1">
+                        <property name="bitmap"></property>
+                        <property name="checked">0</property>
+                        <property name="enabled">1</property>
+                        <property name="help"></property>
+                        <property name="id">wxID_ANY</property>
+                        <property name="kind">wxITEM_NORMAL</property>
                         <property name="label">&amp;Options...</property>
                         <property name="name">m_menuOptionsOptions</property>
                         <property name="permission">none</property>
@@ -504,7 +519,7 @@
                                 <property name="enabled">1</property>
                                 <property name="fg"></property>
                                 <property name="font"></property>
-                                <property name="hidden">0</property>
+                                <property name="hidden">1</property>
                                 <property name="id">wxID_BUTTONCHANGE</property>
                                 <property name="label">C&amp;hange...</property>
                                 <property name="maximum_size"></property>
@@ -673,7 +688,7 @@
                                         <property name="flag">wxALIGN_CENTER_VERTICAL|wxALL</property>
                                         <property name="proportion">0</property>
                                         <object class="wxStaticText" expanded="1">
-                                            <property name="bg">240,240,240</property>
+                                            <property name="bg">wxSYS_COLOUR_WINDOW</property>
                                             <property name="context_help"></property>
                                             <property name="enabled">1</property>
                                             <property name="fg"></property>
@@ -2385,7 +2400,7 @@
             <property name="minimum_size"></property>
             <property name="name">CSendDialogBase</property>
             <property name="pos"></property>
-            <property name="size">675,338</property>
+            <property name="size">675,312</property>
             <property name="style">wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER</property>
             <property name="subclass"></property>
             <property name="title">Send Coins</property>
@@ -2476,7 +2491,7 @@
                                 <property name="font"></property>
                                 <property name="hidden">0</property>
                                 <property name="id">wxID_ANY</property>
-                                <property name="label">Enter the recipient&apos;s IP address (e.g. 123.45.6.7) for online transfer with comments and confirmation, &#x0A;or bitcoin address (e.g. 1NS17iag9jJgTHD1VXjvLCEnZuQ3rJED9L) if recipient is not online.</property>
+                                <property name="label">Enter the recipient&apos;s IP address (e.g. 123.45.6.7) for online transfer with comments and confirmation, &#x0A;or Bitcoin address (e.g. 1NS17iag9jJgTHD1VXjvLCEnZuQ3rJED9L) if recipient is not online.</property>
                                 <property name="maximum_size"></property>
                                 <property name="minimum_size"></property>
                                 <property name="name">m_staticText14</property>
@@ -2922,7 +2937,7 @@
                                 <property name="enabled">1</property>
                                 <property name="fg"></property>
                                 <property name="font"></property>
-                                <property name="hidden">0</property>
+                                <property name="hidden">1</property>
                                 <property name="id">wxID_ANY</property>
                                 <property name="label">T&amp;ransfer:</property>
                                 <property name="maximum_size"></property>
@@ -2974,7 +2989,7 @@
                                 <property name="enabled">1</property>
                                 <property name="fg"></property>
                                 <property name="font"></property>
-                                <property name="hidden">0</property>
+                                <property name="hidden">1</property>
                                 <property name="id">wxID_CHOICETRANSFERTYPE</property>
                                 <property name="maximum_size"></property>
                                 <property name="minimum_size"></property>
@@ -3012,6 +3027,26 @@
                                 <event name="OnSetFocus"></event>
                                 <event name="OnSize"></event>
                                 <event name="OnUpdateUI"></event>
+                            </object>
+                        </object>
+                        <object class="sizeritem" expanded="1">
+                            <property name="border">5</property>
+                            <property name="flag">wxEXPAND</property>
+                            <property name="proportion">0</property>
+                            <object class="spacer" expanded="1">
+                                <property name="height">3</property>
+                                <property name="permission">protected</property>
+                                <property name="width">0</property>
+                            </object>
+                        </object>
+                        <object class="sizeritem" expanded="1">
+                            <property name="border">5</property>
+                            <property name="flag">wxEXPAND</property>
+                            <property name="proportion">0</property>
+                            <object class="spacer" expanded="1">
+                                <property name="height">0</property>
+                                <property name="permission">protected</property>
+                                <property name="width">0</property>
                             </object>
                         </object>
                     </object>
@@ -3399,7 +3434,7 @@
                 </object>
             </object>
         </object>
-        <object class="Dialog" expanded="1">
+        <object class="Dialog" expanded="0">
             <property name="bg"></property>
             <property name="center"></property>
             <property name="context_help"></property>
@@ -3706,7 +3741,7 @@
             <property name="size">610,390</property>
             <property name="style">wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER</property>
             <property name="subclass"></property>
-            <property name="title">Your Bitcoin Address</property>
+            <property name="title">Your Bitcoin Addresses</property>
             <property name="tooltip"></property>
             <property name="window_extra_style"></property>
             <property name="window_name"></property>
@@ -3768,7 +3803,7 @@
                         <property name="font"></property>
                         <property name="hidden">0</property>
                         <property name="id">wxID_ANY</property>
-                        <property name="label">These are your Bitcoin addresses for receiving payments.&#x0A;You may want to give a different one to each sender so you can keep track of who is paying you.</property>
+                        <property name="label">These are your Bitcoin addresses for receiving payments.  You may want to give a different one to each sender so you can keep track of who is paying you.  The highlighted address is displayed in the main window.</property>
                         <property name="maximum_size"></property>
                         <property name="minimum_size"></property>
                         <property name="name">m_staticText45</property>
@@ -3781,7 +3816,7 @@
                         <property name="window_extra_style"></property>
                         <property name="window_name"></property>
                         <property name="window_style"></property>
-                        <property name="wrap">600</property>
+                        <property name="wrap">590</property>
                         <event name="OnChar"></event>
                         <event name="OnEnterWindow"></event>
                         <event name="OnEraseBackground"></event>
@@ -3880,7 +3915,7 @@
                     <property name="border">5</property>
                     <property name="flag">wxEXPAND</property>
                     <property name="proportion">0</property>
-                    <object class="wxBoxSizer" expanded="1">
+                    <object class="wxBoxSizer" expanded="0">
                         <property name="minimum_size"></property>
                         <property name="name">bSizer69</property>
                         <property name="orient">wxHORIZONTAL</property>
@@ -3908,7 +3943,7 @@
                                 <property name="font"></property>
                                 <property name="hidden">0</property>
                                 <property name="id">wxID_BUTTONRENAME</property>
-                                <property name="label">&amp;Rename...</property>
+                                <property name="label">&amp;Edit...</property>
                                 <property name="maximum_size"></property>
                                 <property name="minimum_size">85,25</property>
                                 <property name="name">m_buttonRename</property>
@@ -4114,7 +4149,7 @@
                                 <property name="enabled">1</property>
                                 <property name="fg"></property>
                                 <property name="font"></property>
-                                <property name="hidden">0</property>
+                                <property name="hidden">1</property>
                                 <property name="id">wxID_CANCEL</property>
                                 <property name="label">Cancel</property>
                                 <property name="maximum_size"></property>

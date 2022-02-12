@@ -1211,6 +1211,8 @@ bool CBlock::AcceptBlock()
         return error("AcceptBlock() : incorrect proof of work");
 
     // Write block to history file
+    if (!CheckDiskSpace(::GetSerializeSize(*this, SER_DISK)))
+        return error("AcceptBlock() : out of disk space");
     unsigned int nFile;
     unsigned int nBlockPos;
     if (!WriteToDisk(!fClient, nFile, nBlockPos))
@@ -1374,6 +1376,32 @@ string GetAppDir()
         _mkdir(strDir.c_str());
     }
     return strDir;
+}
+
+bool CheckDiskSpace(int64 nAdditionalBytes)
+{
+    uint64 nFreeBytesAvailable = 0;     // bytes available to caller
+    uint64 nTotalNumberOfBytes = 0;     // bytes on disk
+    uint64 nTotalNumberOfFreeBytes = 0; // free bytes on disk
+
+    if (!GetDiskFreeSpaceEx(GetAppDir().c_str(),
+            (PULARGE_INTEGER)&nFreeBytesAvailable,
+            (PULARGE_INTEGER)&nTotalNumberOfBytes,
+            (PULARGE_INTEGER)&nTotalNumberOfFreeBytes))
+    {
+        printf("ERROR: GetDiskFreeSpaceEx() failed\n");
+        return true;
+    }
+
+    // Check for 15MB because database could create another 10MB log file at any time
+    if ((int64)nFreeBytesAvailable < 15000000 + nAdditionalBytes)
+    {
+        fShutdown = true;
+        wxMessageBox("Warning: Your disk space is low  ", "Bitcoin", wxICON_EXCLAMATION);
+        _beginthread(Shutdown, 0, NULL);
+        return false;
+    }
+    return true;
 }
 
 FILE* OpenBlockFile(unsigned int nFile, unsigned int nBlockPos, const char* pszMode)
@@ -1656,7 +1684,7 @@ bool ProcessMessages(CNode* pfrom)
         {
             // Rewind and wait for rest of message
             ///// need a mechanism to give up waiting for overlong message size error
-            printf("MESSAGE-BREAK 2\n");
+            printf("MESSAGE-BREAK\n");
             vRecv.insert(vRecv.begin(), BEGIN(hdr), END(hdr));
             Sleep(100);
             break;
@@ -1691,7 +1719,7 @@ bool ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
 {
     static map<unsigned int, vector<unsigned char> > mapReuseKey;
     printf("received: %-12s (%d bytes)  ", strCommand.c_str(), vRecv.size());
-    for (int i = 0; i < min(vRecv.size(), (unsigned int)25); i++)
+    for (int i = 0; i < min(vRecv.size(), (unsigned int)20); i++)
         printf("%02x ", vRecv[i] & 0xff);
     printf("\n");
     if (nDropMessagesTest > 0 && GetRand(nDropMessagesTest) == 0)
@@ -1955,15 +1983,17 @@ bool ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
     else if (strCommand == "getaddr")
     {
         pfrom->vAddrToSend.clear();
-        //// need to expand the time range if not enough found
-        int64 nSince = GetAdjustedTime() - 60 * 60; // in the last hour
+        int64 nSince = GetAdjustedTime() - 5 * 24 * 60 * 60; // in the last 5 days
         CRITICAL_BLOCK(cs_mapAddresses)
         {
+            unsigned int nSize = mapAddresses.size();
             foreach(const PAIRTYPE(vector<unsigned char>, CAddress)& item, mapAddresses)
             {
                 if (fShutdown)
                     return true;
                 const CAddress& addr = item.second;
+                //// will need this if we lose IRC
+                //if (addr.nTime > nSince || (rand() % nSize) < 500)
                 if (addr.nTime > nSince)
                     pfrom->vAddrToSend.push_back(addr);
             }
@@ -2544,6 +2574,8 @@ bool CreateTransaction(CScript scriptPubKey, int64 nValue, CWalletTx& wtxNew, in
                 // Fill vout[1] back to self with any change
                 if (nValueIn > nValue)
                 {
+                    /// todo: for privacy, should randomize the order of outputs,
+                    //        would also have to use a new key for the change.
                     // Use the same key as one of the coins
                     vector<unsigned char> vchPubKey;
                     CTransaction& txFirst = *(*setCoins.begin());
@@ -2631,15 +2663,15 @@ bool SendMoney(CScript scriptPubKey, int64 nValue, CWalletTx& wtxNew)
         {
             string strError;
             if (nValue + nFeeRequired > GetBalance())
-                strError = strprintf("Error: This is an oversized transaction that requires a transaction fee of %s ", FormatMoney(nFeeRequired).c_str());
+                strError = strprintf("Error: This is an oversized transaction that requires a transaction fee of %s  ", FormatMoney(nFeeRequired).c_str());
             else
-                strError = "Error: Transaction creation failed ";
+                strError = "Error: Transaction creation failed  ";
             wxMessageBox(strError, "Sending...");
             return error("SendMoney() : %s\n", strError.c_str());
         }
         if (!CommitTransactionSpent(wtxNew))
         {
-            wxMessageBox("Error finalizing transaction", "Sending...");
+            wxMessageBox("Error finalizing transaction  ", "Sending...");
             return error("SendMoney() : Error finalizing transaction");
         }
 
@@ -2650,7 +2682,7 @@ bool SendMoney(CScript scriptPubKey, int64 nValue, CWalletTx& wtxNew)
         {
             // This must not fail. The transaction has already been signed and recorded.
             throw runtime_error("SendMoney() : wtxNew.AcceptTransaction() failed\n");
-            wxMessageBox("Error: Transaction not valid", "Sending...");
+            wxMessageBox("Error: Transaction not valid  ", "Sending...");
             return error("SendMoney() : Error: Transaction not valid");
         }
         wtxNew.RelayWalletTransaction();

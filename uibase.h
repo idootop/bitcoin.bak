@@ -134,6 +134,7 @@ protected:
     virtual void OnPaint(wxPaintEvent& event){ event.Skip(); }
     virtual void OnMenuFileExit(wxCommandEvent& event){ event.Skip(); }
     virtual void OnMenuOptionsGenerate(wxCommandEvent& event){ event.Skip(); }
+    virtual void OnMenuOptionsChangeYourAddress(wxCommandEvent& event){ event.Skip(); }
     virtual void OnMenuOptionsOptions(wxCommandEvent& event){ event.Skip(); }
     virtual void OnMenuHelpAbout(wxCommandEvent& event){ event.Skip(); }
     virtual void OnButtonSend(wxCommandEvent& event){ event.Skip(); }
@@ -260,6 +261,8 @@ protected:
     wxTextCtrl* m_textCtrlAmount;
     wxStaticText* m_staticText20;
     wxChoice* m_choiceTransferType;
+
+
     wxStaticText* m_staticTextFrom;
     wxTextCtrl* m_textCtrlFrom;
     wxStaticText* m_staticTextMessage;
@@ -279,7 +282,7 @@ protected:
 
 
 public:
-    CSendDialogBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("Send Coins"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(675,338), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    CSendDialogBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("Send Coins"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(675,312), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
     ~CSendDialogBase();
 
 };
@@ -342,7 +345,7 @@ protected:
 
 
 public:
-    CYourAddressDialogBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("Your Bitcoin Address"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(610,390), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+    CYourAddressDialogBase(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxT("Your Bitcoin Addresses"), const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(610,390), long style = wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
     ~CYourAddressDialogBase();
 
 };

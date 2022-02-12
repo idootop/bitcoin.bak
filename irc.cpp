@@ -5,14 +5,19 @@
 #include "headers.h"
 
 
+map<vector<unsigned char>, CAddress> mapIRCAddresses;
+CCriticalSection cs_mapIRCAddresses;
 
 
-#pragma pack(1)
+
+
+#pragma pack(push, 1)
 struct ircaddr
 {
     int ip;
     short port;
 };
+#pragma pack(pop)
 
 string EncodeAddress(const CAddress& addr)
 {
@@ -155,19 +160,21 @@ bool Wait(int nSeconds)
 void ThreadIRCSeed(void* parg)
 {
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-    int nErrorWait = 30;
+    int nErrorWait = 10;
     int nRetryWait = 10;
-
 
     while (!fShutdown)
     {
+        CAddress addrConnect("216.155.130.130:6667");
         struct hostent* phostent = gethostbyname("chat.freenode.net");
-        CAddress addrConnect(*(u_long*)phostent->h_addr_list[0], htons(6667));
+        if (phostent && phostent->h_addr_list && phostent->h_addr_list[0])
+            addrConnect = CAddress(*(u_long*)phostent->h_addr_list[0], htons(6667));
 
         SOCKET hSocket;
         if (!ConnectSocket(addrConnect, hSocket))
         {
             printf("IRC connect failed\n");
+            nErrorWait = nErrorWait * 11 / 10;
             if (Wait(nErrorWait += 60))
                 continue;
             else
@@ -177,6 +184,7 @@ void ThreadIRCSeed(void* parg)
         if (!RecvUntil(hSocket, "Found your hostname", "using your IP address instead", "Couldn't look up your hostname"))
         {
             closesocket(hSocket);
+            nErrorWait = nErrorWait * 11 / 10;
             if (Wait(nErrorWait += 60))
                 continue;
             else
@@ -195,6 +203,7 @@ void ThreadIRCSeed(void* parg)
         if (!RecvUntil(hSocket, " 004 "))
         {
             closesocket(hSocket);
+            nErrorWait = nErrorWait * 11 / 10;
             if (Wait(nErrorWait += 60))
                 continue;
             else
@@ -205,6 +214,7 @@ void ThreadIRCSeed(void* parg)
         Send(hSocket, "JOIN #bitcoin\r");
         Send(hSocket, "WHO #bitcoin\r");
 
+        int64 nStart = GetTime();
         string strLine;
         while (!fShutdown && RecvLineIRC(hSocket, strLine))
         {
@@ -245,18 +255,34 @@ void ThreadIRCSeed(void* parg)
                     CAddrDB addrdb;
                     if (AddAddress(addrdb, addr))
                         printf("new  ");
+                    else
+                    {
+                        // make it try connecting again
+                        CRITICAL_BLOCK(cs_mapAddresses)
+                            if (mapAddresses.count(addr.GetKey()))
+                                mapAddresses[addr.GetKey()].nLastFailed = 0;
+                    }
                     addr.print();
+
+                    CRITICAL_BLOCK(cs_mapIRCAddresses)
+                        mapIRCAddresses.insert(make_pair(addr.GetKey(), addr));
                 }
                 else
                 {
                     printf("decode failed\n");
                 }
             }
-
         }
         closesocket(hSocket);
 
-        if (!Wait(nRetryWait += 10))
+        if (GetTime() - nStart > 20 * 60)
+        {
+            nErrorWait /= 3;
+            nRetryWait /= 3;
+        }
+
+        nRetryWait = nRetryWait * 11 / 10;
+        if (!Wait(nRetryWait += 60))
             return;
     }
 }

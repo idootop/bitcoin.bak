@@ -33,6 +33,10 @@ CMainFrameBase::CMainFrameBase(wxWindow* parent, wxWindowID id, const wxString& 
     m_menuOptionsGenerateBitcoins = new wxMenuItem(m_menuOptions, wxID_OPTIONSGENERATEBITCOINS, wxString(wxT("&Generate Coins")) , wxEmptyString, wxITEM_CHECK);
     m_menuOptions->Append(m_menuOptionsGenerateBitcoins);
 
+    wxMenuItem* m_menuChangeYourAddress;
+    m_menuChangeYourAddress = new wxMenuItem(m_menuOptions, wxID_ANY, wxString(wxT("&Change Your Address...")) , wxEmptyString, wxITEM_NORMAL);
+    m_menuOptions->Append(m_menuChangeYourAddress);
+
     wxMenuItem* m_menuOptionsOptions;
     m_menuOptionsOptions = new wxMenuItem(m_menuOptions, wxID_ANY, wxString(wxT("&Options...")) , wxEmptyString, wxITEM_NORMAL);
     m_menuOptions->Append(m_menuOptionsOptions);
@@ -82,6 +86,8 @@ CMainFrameBase::CMainFrameBase(wxWindow* parent, wxWindowID id, const wxString& 
     bSizer85->Add(m_buttonCopy, 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5);
 
     m_button91 = new wxButton(this, wxID_BUTTONCHANGE, wxT("C&hange..."), wxDefaultPosition, wxDefaultSize, 0);
+    m_button91->Hide();
+
     bSizer85->Add(m_button91, 0, wxRIGHT, 5);
 
 
@@ -103,7 +109,7 @@ CMainFrameBase::CMainFrameBase(wxWindow* parent, wxWindowID id, const wxString& 
     m_staticTextBalance = new wxStaticText(m_panel14, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(120,15), wxALIGN_RIGHT|wxST_NO_AUTORESIZE);
     m_staticTextBalance->Wrap(-1);
     m_staticTextBalance->SetFont(wxFont(8, 70, 90, 90, false, wxEmptyString));
-    m_staticTextBalance->SetBackgroundColour(wxColour(240, 240, 240));
+    m_staticTextBalance->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
 
     bSizer66->Add(m_staticTextBalance, 0, wxALIGN_CENTER_VERTICAL|wxALL, 5);
 
@@ -223,6 +229,7 @@ CMainFrameBase::CMainFrameBase(wxWindow* parent, wxWindowID id, const wxString& 
     this->Connect(wxEVT_PAINT, wxPaintEventHandler(CMainFrameBase::OnPaint));
     this->Connect(m_menuFileExit->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(CMainFrameBase::OnMenuFileExit));
     this->Connect(m_menuOptionsGenerateBitcoins->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(CMainFrameBase::OnMenuOptionsGenerate));
+    this->Connect(m_menuChangeYourAddress->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(CMainFrameBase::OnMenuOptionsChangeYourAddress));
     this->Connect(m_menuOptionsOptions->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(CMainFrameBase::OnMenuOptionsOptions));
     this->Connect(m_menuHelpAbout->GetId(), wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(CMainFrameBase::OnMenuHelpAbout));
     this->Connect(wxID_BUTTONSEND, wxEVT_COMMAND_TOOL_CLICKED, wxCommandEventHandler(CMainFrameBase::OnButtonSend));
@@ -273,6 +280,7 @@ CMainFrameBase::~CMainFrameBase()
     this->Disconnect(wxEVT_PAINT, wxPaintEventHandler(CMainFrameBase::OnPaint));
     this->Disconnect(wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(CMainFrameBase::OnMenuFileExit));
     this->Disconnect(wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(CMainFrameBase::OnMenuOptionsGenerate));
+    this->Disconnect(wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(CMainFrameBase::OnMenuOptionsChangeYourAddress));
     this->Disconnect(wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(CMainFrameBase::OnMenuOptionsOptions));
     this->Disconnect(wxID_ANY, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(CMainFrameBase::OnMenuHelpAbout));
     this->Disconnect(wxID_BUTTONSEND, wxEVT_COMMAND_TOOL_CLICKED, wxCommandEventHandler(CMainFrameBase::OnButtonSend));
@@ -492,7 +500,7 @@ CSendDialogBase::CSendDialogBase(wxWindow* parent, wxWindowID id, const wxString
 
     fgSizer1->Add(0, 0, 0, wxEXPAND, 5);
 
-    m_staticText14 = new wxStaticText(this, wxID_ANY, wxT("Enter the recipient's IP address (e.g. 123.45.6.7) for online transfer with comments and confirmation, \nor bitcoin address (e.g. 1NS17iag9jJgTHD1VXjvLCEnZuQ3rJED9L) if recipient is not online."), wxDefaultPosition, wxDefaultSize, 0);
+    m_staticText14 = new wxStaticText(this, wxID_ANY, wxT("Enter the recipient's IP address (e.g. 123.45.6.7) for online transfer with comments and confirmation, \nor Bitcoin address (e.g. 1NS17iag9jJgTHD1VXjvLCEnZuQ3rJED9L) if recipient is not online."), wxDefaultPosition, wxDefaultSize, 0);
     m_staticText14->Wrap(-1);
     fgSizer1->Add(m_staticText14, 0, wxTOP|wxRIGHT|wxLEFT, 5);
 
@@ -538,13 +546,23 @@ CSendDialogBase::CSendDialogBase(wxWindow* parent, wxWindowID id, const wxString
 
     m_staticText20 = new wxStaticText(this, wxID_ANY, wxT("T&ransfer:"), wxDefaultPosition, wxSize(-1,-1), wxALIGN_RIGHT);
     m_staticText20->Wrap(-1);
+    m_staticText20->Hide();
+
     fgSizer1->Add(m_staticText20, 0, wxALIGN_CENTER_VERTICAL|wxALIGN_RIGHT|wxTOP|wxBOTTOM|wxLEFT, 5);
 
     wxString m_choiceTransferTypeChoices[] = { wxT(" Standard") };
     int m_choiceTransferTypeNChoices = sizeof(m_choiceTransferTypeChoices) / sizeof(wxString);
     m_choiceTransferType = new wxChoice(this, wxID_CHOICETRANSFERTYPE, wxDefaultPosition, wxDefaultSize, m_choiceTransferTypeNChoices, m_choiceTransferTypeChoices, 0);
     m_choiceTransferType->SetSelection(0);
+    m_choiceTransferType->Hide();
+
     fgSizer1->Add(m_choiceTransferType, 0, wxALIGN_CENTER_VERTICAL|wxALL, 5);
+
+
+    fgSizer1->Add(0, 3, 0, wxEXPAND, 5);
+
+
+    fgSizer1->Add(0, 0, 0, wxEXPAND, 5);
 
     bSizer21->Add(fgSizer1, 0, wxEXPAND|wxLEFT, 5);
 
@@ -696,8 +714,8 @@ CYourAddressDialogBase::CYourAddressDialogBase(wxWindow* parent, wxWindowID id, 
 
     bSizer68->Add(0, 5, 0, wxEXPAND, 5);
 
-    m_staticText45 = new wxStaticText(this, wxID_ANY, wxT("These are your Bitcoin addresses for receiving payments.\nYou may want to give a different one to each sender so you can keep track of who is paying you."), wxDefaultPosition, wxDefaultSize, 0);
-    m_staticText45->Wrap(600);
+    m_staticText45 = new wxStaticText(this, wxID_ANY, wxT("These are your Bitcoin addresses for receiving payments.  You may want to give a different one to each sender so you can keep track of who is paying you.  The highlighted address is displayed in the main window."), wxDefaultPosition, wxDefaultSize, 0);
+    m_staticText45->Wrap(590);
     bSizer68->Add(m_staticText45, 0, wxALL, 5);
 
     m_listCtrl = new wxListCtrl(this, wxID_LISTCTRL, wxDefaultPosition, wxDefaultSize, wxLC_NO_SORT_HEADER|wxLC_REPORT|wxLC_SORT_ASCENDING);
@@ -709,7 +727,7 @@ CYourAddressDialogBase::CYourAddressDialogBase(wxWindow* parent, wxWindowID id, 
 
     bSizer69->Add(0, 0, 1, wxEXPAND, 5);
 
-    m_buttonRename = new wxButton(this, wxID_BUTTONRENAME, wxT("&Rename..."), wxDefaultPosition, wxDefaultSize, 0);
+    m_buttonRename = new wxButton(this, wxID_BUTTONRENAME, wxT("&Edit..."), wxDefaultPosition, wxDefaultSize, 0);
     m_buttonRename->SetMinSize(wxSize(85,25));
 
     bSizer69->Add(m_buttonRename, 0, wxALL, 5);
@@ -730,6 +748,7 @@ CYourAddressDialogBase::CYourAddressDialogBase(wxWindow* parent, wxWindowID id, 
     bSizer69->Add(m_buttonOK, 0, wxALL, 5);
 
     m_buttonCancel = new wxButton(this, wxID_CANCEL, wxT("Cancel"), wxDefaultPosition, wxSize(-1,-1), 0);
+    m_buttonCancel->Hide();
     m_buttonCancel->SetMinSize(wxSize(85,25));
 
     bSizer69->Add(m_buttonCancel, 0, wxALL, 5);

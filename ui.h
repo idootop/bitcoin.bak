@@ -45,6 +45,7 @@ protected:
     void OnPaintListCtrl(wxPaintEvent& event);
     void OnMenuFileExit(wxCommandEvent& event);
     void OnMenuOptionsGenerate(wxCommandEvent& event);
+    void OnMenuOptionsChangeYourAddress(wxCommandEvent& event);
     void OnMenuOptionsOptions(wxCommandEvent& event);
     void OnMenuHelpAbout(wxCommandEvent& event);
     void OnButtonSend(wxCommandEvent& event);
@@ -233,6 +234,7 @@ public:
     // Custom
     bool fSending;
     wxString GetAddress();
+    bool CheckIfMine(const string& strAddress, const string& strTitle);
 };
 
 

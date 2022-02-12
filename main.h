@@ -49,6 +49,7 @@ extern CAddress addrIncoming;
 
 
 string GetAppDir();
+bool CheckDiskSpace(int64 nAdditionalBytes=0);
 FILE* OpenBlockFile(unsigned int nFile, unsigned int nBlockPos, const char* pszMode="rb");
 FILE* AppendBlockFile(unsigned int& nFileRet);
 bool AddKey(const CKey& key);
@@ -503,10 +504,21 @@ public:
 
     int64 GetMinFee(bool fDiscount=false) const
     {
+        // Base fee is 1 cent per kilobyte
         unsigned int nBytes = ::GetSerializeSize(*this, SER_NETWORK);
+        int64 nMinFee = (1 + (int64)nBytes / 1000) * CENT;
+
+        // First 100 transactions in a block are free
         if (fDiscount && nBytes < 10000)
-            return 0;
-        return (1 + (int64)nBytes / 1000) * CENT;
+            nMinFee = 0;
+
+        // To limit dust spam, require a 0.01 fee if any output is less than 0.01
+        if (nMinFee < CENT)
+            foreach(const CTxOut& txout, vout)
+                if (txout.nValue < CENT)
+                    nMinFee = CENT;
+
+        return nMinFee;
     }
 
 

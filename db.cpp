@@ -403,6 +403,7 @@ bool CAddrDB::WriteAddress(const CAddress& addr)
 
 bool CAddrDB::LoadAddresses()
 {
+    CRITICAL_BLOCK(cs_mapIRCAddresses)
     CRITICAL_BLOCK(cs_mapAddresses)
     {
         // Load user provided addresses
@@ -416,7 +417,10 @@ bool CAddrDB::LoadAddresses()
                 {
                     CAddress addr(psz, NODE_NETWORK);
                     if (addr.ip != 0)
+                    {
                         AddAddress(*this, addr);
+                        mapIRCAddresses.insert(make_pair(addr.GetKey(), addr));
+                    }
                 }
             }
             catch (...) { }
@@ -455,8 +459,9 @@ bool CAddrDB::LoadAddresses()
             item.second.print();
         printf("-----\n");
 
-        // Fix for possible GCC bug that manifests in mapAddresses.count in irc.cpp,
-        // just need to call count here and it doesn't happen there, do not delete this!
+        // Fix for possible bug that manifests in mapAddresses.count in irc.cpp,
+        // just need to call count here and it doesn't happen there.  The bug was the
+        // pack pragma in irc.cpp and has been fixed, but I'm not in a hurry to delete this.
         mapAddresses.count(vector<unsigned char>(18));
     }
 
@@ -596,6 +601,7 @@ bool LoadWallet()
     else
     {
         // Create new keyUser and set as default key
+        RandAddSeed(true);
         keyUser.MakeNewKey();
         if (!AddKey(keyUser))
             return false;
