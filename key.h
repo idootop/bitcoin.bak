@@ -1,45 +1,3 @@
-// Copyright (c) 2009 Satoshi Nakamoto
-// Distributed under the MIT/X11 software license, see the accompanying
-// file license.txt or http://www.opensource.org/licenses/mit-license.php.
-
-
-// secp160k1
-// const unsigned int PRIVATE_KEY_SIZE = 192;
-// const unsigned int PUBLIC_KEY_SIZE  = 41;
-// const unsigned int SIGNATURE_SIZE   = 48;
-//
-// secp192k1
-// const unsigned int PRIVATE_KEY_SIZE = 222;
-// const unsigned int PUBLIC_KEY_SIZE  = 49;
-// const unsigned int SIGNATURE_SIZE   = 57;
-//
-// secp224k1
-// const unsigned int PRIVATE_KEY_SIZE = 250;
-// const unsigned int PUBLIC_KEY_SIZE  = 57;
-// const unsigned int SIGNATURE_SIZE   = 66;
-//
-// secp256k1:
-// const unsigned int PRIVATE_KEY_SIZE = 279;
-// const unsigned int PUBLIC_KEY_SIZE  = 65;
-// const unsigned int SIGNATURE_SIZE   = 72;
-//
-// see www.keylength.com
-// script supports up to 75 for single byte push
-
-
-
-class key_error : public std::runtime_error
-{
-public:
-    explicit key_error(const std::string& str) : std::runtime_error(str) {}
-};
-
-
-// secure_allocator is defined is serialize.h
-typedef vector<unsigned char, secure_allocator<unsigned char> > CPrivKey;
-
-
-
 class CKey
 {
 protected:
@@ -58,18 +16,6 @@ public:
         pkey = EC_KEY_dup(b.pkey);
         if (pkey == NULL)
             throw key_error("CKey::CKey(const CKey&) : EC_KEY_dup failed");
-    }
-
-    CKey& operator=(const CKey& b)
-    {
-        if (!EC_KEY_copy(pkey, b.pkey))
-            throw key_error("CKey::operator=(const CKey&) : EC_KEY_copy failed");
-        return (*this);
-    }
-
-    ~CKey()
-    {
-        EC_KEY_free(pkey);
     }
 
     void MakeNewKey()

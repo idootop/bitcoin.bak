@@ -1,21 +1,7 @@
-// Copyright (c) 2009 Satoshi Nakamoto
-// Distributed under the MIT/X11 software license, see the accompanying
-// file license.txt or http://www.opensource.org/licenses/mit-license.php.
-
-#include "headers.h"
-#include "sha.h"
-
-
-
-
-
 //
 // Global state
 //
 
-CCriticalSection cs_main;
-
-map<uint256, CTransaction> mapTransactions;
 CCriticalSection cs_mapTransactions;
 unsigned int nTransactionsUpdated = 0;
 map<COutPoint, CInPoint> mapNextTx;
@@ -27,34 +13,29 @@ int nBestHeight = -1;
 uint256 hashBestChain = 0;
 CBlockIndex* pindexBest = NULL;
 
+// 孤儿block
 map<uint256, CBlock*> mapOrphanBlocks;
 multimap<uint256, CBlock*> mapOrphanBlocksByPrev;
-
+// 孤儿交易
 map<uint256, CDataStream*> mapOrphanTransactions;
 multimap<uint256, CDataStream*> mapOrphanTransactionsByPrev;
 
+// hash: CWalletTx In
 map<uint256, CWalletTx> mapWallet;
 vector<pair<uint256, bool> > vWalletUpdated;
 CCriticalSection cs_mapWallet;
 
+// 管理公私钥 pubKey:privKey
 map<vector<unsigned char>, CPrivKey> mapKeys;
+// Hash160（pubKey）: pubKey
 map<uint160, vector<unsigned char> > mapPubKeys;
 CCriticalSection cs_mapKeys;
 CKey keyUser;
-
-string strSetDataDir;
-int nDropMessagesTest = 0;
 
 // Settings
 int fGenerateBitcoins;
 int64 nTransactionFee = 0;
 CAddress addrIncoming;
-
-
-
-
-
-
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -64,11 +45,8 @@ CAddress addrIncoming;
 
 bool AddKey(const CKey& key)
 {
-    CRITICAL_BLOCK(cs_mapKeys)
-    {
-        mapKeys[key.GetPubKey()] = key.GetPrivKey();
-        mapPubKeys[Hash160(key.GetPubKey())] = key.GetPubKey();
-    }
+    mapKeys[key.GetPubKey()] = key.GetPrivKey();
+    mapPubKeys[Hash160(key.GetPubKey())] = key.GetPubKey();
     return CWalletDB().WriteKey(key.GetPubKey(), key.GetPrivKey());
 }
 
@@ -80,9 +58,6 @@ vector<unsigned char> GenerateNewKey()
         throw runtime_error("GenerateNewKey() : AddKey failed\n");
     return key.GetPubKey();
 }
-
-
-
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -96,25 +71,23 @@ bool AddToWallet(const CWalletTx& wtxIn)
     {
         // Inserts only if not already there, returns tx inserted or tx found
         pair<map<uint256, CWalletTx>::iterator, bool> ret = mapWallet.insert(make_pair(hash, wtxIn));
+        // 存在的旧的 CWalletTx
         CWalletTx& wtx = (*ret.first).second;
         bool fInsertedNew = ret.second;
         if (fInsertedNew)
+            // 新建
             wtx.nTimeReceived = GetAdjustedTime();
-
-        //// debug print
-        printf("AddToWallet %s  %s\n", wtxIn.GetHash().ToString().substr(0,6).c_str(), fInsertedNew ? "new" : "update");
-
-        if (!fInsertedNew)
-        {
+        if (!fInsertedNew) {
             // Merge
             bool fUpdated = false;
             if (wtxIn.hashBlock != 0 && wtxIn.hashBlock != wtx.hashBlock)
-            {
+            {   // 更新hashBlock
                 wtx.hashBlock = wtxIn.hashBlock;
                 fUpdated = true;
             }
             if (wtxIn.nIndex != -1 && (wtxIn.vMerkleBranch != wtx.vMerkleBranch || wtxIn.nIndex != wtx.nIndex))
-            {
+            {   
+                // 更新 vMerkleBranch
                 wtx.vMerkleBranch = wtxIn.vMerkleBranch;
                 wtx.nIndex = wtxIn.nIndex;
                 fUpdated = true;
@@ -136,14 +109,7 @@ bool AddToWallet(const CWalletTx& wtxIn)
         // Write to disk
         if (!wtx.WriteToDisk())
             return false;
-
-        // Notify UI
-        vWalletUpdated.push_back(make_pair(hash, fInsertedNew));
     }
-
-    // Refresh UI
-    MainFrameRepaint();
-    return true;
 }
 
 bool AddToWalletIfMine(const CTransaction& tx, const CBlock* pblock)
@@ -159,29 +125,12 @@ bool AddToWalletIfMine(const CTransaction& tx, const CBlock* pblock)
     return true;
 }
 
-bool EraseFromWallet(uint256 hash)
-{
-    CRITICAL_BLOCK(cs_mapWallet)
-    {
-        if (mapWallet.erase(hash))
-            CWalletDB().EraseTx(hash);
-    }
-    return true;
-}
-
-
-
-
-
-
-
-
-
 //////////////////////////////////////////////////////////////////////////////
 //
 // mapOrphanTransactions
 //
 
+// 孤儿交易
 void AddOrphanTx(const CDataStream& vMsg)
 {
     CTransaction tx;
@@ -216,13 +165,6 @@ void EraseOrphanTx(uint256 hash)
     mapOrphanTransactions.erase(hash);
 }
 
-
-
-
-
-
-
-
 //////////////////////////////////////////////////////////////////////////////
 //
 // CTransaction
@@ -235,8 +177,11 @@ bool CTxIn::IsMine() const
         map<uint256, CWalletTx>::iterator mi = mapWallet.find(prevout.hash);
         if (mi != mapWallet.end())
         {
+            // found
             const CWalletTx& prev = (*mi).second;
+            // 数组未越界
             if (prevout.n < prev.vout.size())
+                // prev.vout IsMine
                 if (prev.vout[prevout.n].IsMine())
                     return true;
         }
@@ -244,6 +189,7 @@ bool CTxIn::IsMine() const
     return false;
 }
 
+// 借入
 int64 CTxIn::GetDebit() const
 {
     CRITICAL_BLOCK(cs_mapWallet)
@@ -253,6 +199,7 @@ int64 CTxIn::GetDebit() const
         {
             const CWalletTx& prev = (*mi).second;
             if (prevout.n < prev.vout.size())
+                // 贷出
                 if (prev.vout[prevout.n].IsMine())
                     return prev.vout[prevout.n].nValue;
         }
@@ -277,11 +224,6 @@ int64 CWalletTx::GetTxTime() const
     }
     return nTimeReceived;
 }
-
-
-
-
-
 
 int CMerkleTx::SetMerkleBranch(const CBlock* pblock)
 {
@@ -394,15 +336,6 @@ void CWalletTx::AddSupportingTransactions(CTxDB& txdb)
 }
 
 
-
-
-
-
-
-
-
-
-
 bool CTransaction::AcceptTransaction(CTxDB& txdb, bool fCheckInputs, bool* pfMissingInputs)
 {
     if (pfMissingInputs)
@@ -507,11 +440,6 @@ bool CTransaction::RemoveFromMemoryPool()
     return true;
 }
 
-
-
-
-
-
 int CMerkleTx::GetDepthInMainChain() const
 {
     if (hashBlock == 0 || nIndex == -1)
@@ -536,14 +464,13 @@ int CMerkleTx::GetDepthInMainChain() const
     return pindexBest->nHeight - pindex->nHeight + 1;
 }
 
-
+// 让区块成熟
 int CMerkleTx::GetBlocksToMaturity() const
 {
     if (!IsCoinBase())
         return 0;
     return max(0, (COINBASE_MATURITY+20) - GetDepthInMainChain());
 }
-
 
 bool CMerkleTx::AcceptTransaction(CTxDB& txdb, bool fCheckInputs)
 {
@@ -558,8 +485,6 @@ bool CMerkleTx::AcceptTransaction(CTxDB& txdb, bool fCheckInputs)
         return CTransaction::AcceptTransaction(txdb, fCheckInputs);
     }
 }
-
-
 
 bool CWalletTx::AcceptWalletTransaction(CTxDB& txdb, bool fCheckInputs)
 {
@@ -594,7 +519,6 @@ void ReacceptWalletTransactions()
         }
     }
 }
-
 
 void CWalletTx::RelayWalletTransaction(CTxDB& txdb)
 {
@@ -644,15 +568,6 @@ void RelayWalletTransactions()
         }
     }
 }
-
-
-
-
-
-
-
-
-
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -728,14 +643,6 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast)
     return bnNew.GetCompact();
 }
 
-
-
-
-
-
-
-
-
 bool CTransaction::DisconnectInputs(CTxDB& txdb)
 {
     // Relinquish previous transactions' spent pointers
@@ -767,7 +674,6 @@ bool CTransaction::DisconnectInputs(CTxDB& txdb)
 
     return true;
 }
-
 
 bool CTransaction::ConnectInputs(CTxDB& txdb, map<uint256, CTxIndex>& mapTestPool, CDiskTxPos posThisTx, int nHeight, int64& nFees, bool fBlock, bool fMiner, int64 nMinFee)
 {
@@ -869,7 +775,6 @@ bool CTransaction::ConnectInputs(CTxDB& txdb, map<uint256, CTxIndex>& mapTestPoo
     return true;
 }
 
-
 bool CTransaction::ClientConnectInputs()
 {
     if (IsCoinBase())
@@ -911,9 +816,6 @@ bool CTransaction::ClientConnectInputs()
 
     return true;
 }
-
-
-
 
 bool CBlock::DisconnectBlock(CTxDB& txdb, CBlockIndex* pindex)
 {
@@ -968,8 +870,6 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex)
 
     return true;
 }
-
-
 
 bool Reorganize(CTxDB& txdb, CBlockIndex* pindexNew)
 {
@@ -1068,7 +968,6 @@ bool Reorganize(CTxDB& txdb, CBlockIndex* pindexNew)
     return true;
 }
 
-
 bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos)
 {
     // Check for duplicate
@@ -1147,9 +1046,6 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos)
     MainFrameRepaint();
     return true;
 }
-
-
-
 
 bool CBlock::CheckBlock() const
 {
@@ -1295,156 +1191,6 @@ bool ProcessBlock(CNode* pfrom, CBlock* pblock)
     return true;
 }
 
-
-
-
-
-
-
-
-template<typename Stream>
-bool ScanMessageStart(Stream& s)
-{
-    // Scan ahead to the next pchMessageStart, which should normally be immediately
-    // at the file pointer.  Leaves file pointer at end of pchMessageStart.
-    s.clear(0);
-    short prevmask = s.exceptions(0);
-    const char* p = BEGIN(pchMessageStart);
-    try
-    {
-        loop
-        {
-            char c;
-            s.read(&c, 1);
-            if (s.fail())
-            {
-                s.clear(0);
-                s.exceptions(prevmask);
-                return false;
-            }
-            if (*p != c)
-                p = BEGIN(pchMessageStart);
-            if (*p == c)
-            {
-                if (++p == END(pchMessageStart))
-                {
-                    s.clear(0);
-                    s.exceptions(prevmask);
-                    return true;
-                }
-            }
-        }
-    }
-    catch (...)
-    {
-        s.clear(0);
-        s.exceptions(prevmask);
-        return false;
-    }
-}
-
-string GetAppDir()
-{
-    string strDir;
-    if (!strSetDataDir.empty())
-    {
-        strDir = strSetDataDir;
-    }
-    else if (getenv("APPDATA"))
-    {
-        strDir = strprintf("%s\\Bitcoin", getenv("APPDATA"));
-    }
-    else if (getenv("USERPROFILE"))
-    {
-        string strAppData = strprintf("%s\\Application Data", getenv("USERPROFILE"));
-        static bool fMkdirDone;
-        if (!fMkdirDone)
-        {
-            fMkdirDone = true;
-            _mkdir(strAppData.c_str());
-        }
-        strDir = strprintf("%s\\Bitcoin", strAppData.c_str());
-    }
-    else
-    {
-        return ".";
-    }
-    static bool fMkdirDone;
-    if (!fMkdirDone)
-    {
-        fMkdirDone = true;
-        _mkdir(strDir.c_str());
-    }
-    return strDir;
-}
-
-bool CheckDiskSpace(int64 nAdditionalBytes)
-{
-    uint64 nFreeBytesAvailable = 0;     // bytes available to caller
-    uint64 nTotalNumberOfBytes = 0;     // bytes on disk
-    uint64 nTotalNumberOfFreeBytes = 0; // free bytes on disk
-
-    if (!GetDiskFreeSpaceEx(GetAppDir().c_str(),
-            (PULARGE_INTEGER)&nFreeBytesAvailable,
-            (PULARGE_INTEGER)&nTotalNumberOfBytes,
-            (PULARGE_INTEGER)&nTotalNumberOfFreeBytes))
-    {
-        printf("ERROR: GetDiskFreeSpaceEx() failed\n");
-        return true;
-    }
-
-    // Check for 15MB because database could create another 10MB log file at any time
-    if ((int64)nFreeBytesAvailable < 15000000 + nAdditionalBytes)
-    {
-        fShutdown = true;
-        wxMessageBox("Warning: Your disk space is low  ", "Bitcoin", wxICON_EXCLAMATION);
-        _beginthread(Shutdown, 0, NULL);
-        return false;
-    }
-    return true;
-}
-
-FILE* OpenBlockFile(unsigned int nFile, unsigned int nBlockPos, const char* pszMode)
-{
-    if (nFile == -1)
-        return NULL;
-    FILE* file = fopen(strprintf("%s\\blk%04d.dat", GetAppDir().c_str(), nFile).c_str(), pszMode);
-    if (!file)
-        return NULL;
-    if (nBlockPos != 0 && !strchr(pszMode, 'a') && !strchr(pszMode, 'w'))
-    {
-        if (fseek(file, nBlockPos, SEEK_SET) != 0)
-        {
-            fclose(file);
-            return NULL;
-        }
-    }
-    return file;
-}
-
-static unsigned int nCurrentBlockFile = 1;
-
-FILE* AppendBlockFile(unsigned int& nFileRet)
-{
-    nFileRet = 0;
-    loop
-    {
-        FILE* file = OpenBlockFile(nCurrentBlockFile, 0, "ab");
-        if (!file)
-            return NULL;
-        if (fseek(file, 0, SEEK_END) != 0)
-            return NULL;
-        // FAT32 filesize max 4GB, fseek and ftell max 2GB, so we must stay under 2GB
-        if (ftell(file) < 0x7F000000 - MAX_SIZE)
-        {
-            nFileRet = nCurrentBlockFile;
-            return file;
-        }
-        fclose(file);
-        nCurrentBlockFile++;
-    }
-}
-
 bool LoadBlockIndex(bool fAllowNew)
 {
     //
@@ -1518,8 +1264,6 @@ bool LoadBlockIndex(bool fAllowNew)
 
     return true;
 }
-
-
 
 void PrintBlockTree()
 {
@@ -1603,14 +1347,6 @@ void PrintBlockTree()
 }
 
 
-
-
-
-
-
-
-
-
 //////////////////////////////////////////////////////////////////////////////
 //
 // Messages
@@ -1630,91 +1366,7 @@ bool AlreadyHave(CTxDB& txdb, const CInv& inv)
     return true;
 }
 
-
-
-
-
-
-
-bool ProcessMessages(CNode* pfrom)
-{
-    CDataStream& vRecv = pfrom->vRecv;
-    if (vRecv.empty())
-        return true;
-    printf("ProcessMessages(%d bytes)\n", vRecv.size());
-
-    //
-    // Message format
-    //  (4) message start
-    //  (12) command
-    //  (4) size
-    //  (x) data
-    //
-
-    loop
-    {
-        // Scan for message start
-        CDataStream::iterator pstart = search(vRecv.begin(), vRecv.end(), BEGIN(pchMessageStart), END(pchMessageStart));
-        if (vRecv.end() - pstart < sizeof(CMessageHeader))
-        {
-            if (vRecv.size() > sizeof(CMessageHeader))
-            {
-                printf("\n\nPROCESSMESSAGE MESSAGESTART NOT FOUND\n\n");
-                vRecv.erase(vRecv.begin(), vRecv.end() - sizeof(CMessageHeader));
-            }
-            break;
-        }
-        if (pstart - vRecv.begin() > 0)
-            printf("\n\nPROCESSMESSAGE SKIPPED %d BYTES\n\n", pstart - vRecv.begin());
-        vRecv.erase(vRecv.begin(), pstart);
-
-        // Read header
-        CMessageHeader hdr;
-        vRecv >> hdr;
-        if (!hdr.IsValid())
-        {
-            printf("\n\nPROCESSMESSAGE: ERRORS IN HEADER %s\n\n\n", hdr.GetCommand().c_str());
-            continue;
-        }
-        string strCommand = hdr.GetCommand();
-
-        // Message size
-        unsigned int nMessageSize = hdr.nMessageSize;
-        if (nMessageSize > vRecv.size())
-        {
-            // Rewind and wait for rest of message
-            ///// need a mechanism to give up waiting for overlong message size error
-            printf("MESSAGE-BREAK\n");
-            vRecv.insert(vRecv.begin(), BEGIN(hdr), END(hdr));
-            Sleep(100);
-            break;
-        }
-
-        // Copy message to its own buffer
-        CDataStream vMsg(vRecv.begin(), vRecv.begin() + nMessageSize, vRecv.nType, vRecv.nVersion);
-        vRecv.ignore(nMessageSize);
-
-        // Process message
-        bool fRet = false;
-        try
-        {
-            CheckForShutdown(2);
-            CRITICAL_BLOCK(cs_main)
-                fRet = ProcessMessage(pfrom, strCommand, vMsg);
-            CheckForShutdown(2);
-        }
-        CATCH_PRINT_EXCEPTION("ProcessMessage()")
-        if (!fRet)
-            printf("ProcessMessage(%s, %d bytes) from %s to %s FAILED\n", strCommand.c_str(), nMessageSize, pfrom->addr.ToString().c_str(), addrLocalHost.ToString().c_str());
-    }
-
-    vRecv.Compact();
-    return true;
-}
-
-
-
-
+// 节点消息处理
 bool ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
 {
     static map<unsigned int, vector<unsigned char> > mapReuseKey;
@@ -2075,14 +1727,6 @@ bool ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
     return true;
 }
 
-
-
-
-
-
-
-
-
 bool SendMessages(CNode* pto)
 {
     CheckForShutdown(2);
@@ -2147,19 +1791,6 @@ bool SendMessages(CNode* pto)
     return true;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 //////////////////////////////////////////////////////////////////////////////
 //
 // BitcoinMiner
@@ -2212,9 +1843,6 @@ void BlockSHA256(const void* pin, unsigned int nBlocks, void* pout)
 
 bool BitcoinMiner()
 {
-    printf("BitcoinMiner started\n");
-    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_LOWEST);
-
     CKey key;
     key.MakeNewKey();
     CBigNum bnExtraNonce = 0;
@@ -2390,23 +2018,6 @@ bool BitcoinMiner()
     return true;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 //////////////////////////////////////////////////////////////////////////////
 //
 // Actions
@@ -2434,8 +2045,6 @@ int64 GetBalance()
     ///printf(" GetBalance() time = %16I64d\n", nEnd - nStart);
     return nTotal;
 }
-
-
 
 bool SelectCoins(int64 nTargetValue, set<CWalletTx*>& setCoinsRet)
 {
@@ -2537,9 +2146,6 @@ bool SelectCoins(int64 nTargetValue, set<CWalletTx*>& setCoinsRet)
 
     return true;
 }
-
-
-
 
 bool CreateTransaction(CScript scriptPubKey, int64 nValue, CWalletTx& wtxNew, int64& nFeeRequiredRet)
 {
@@ -2650,9 +2256,6 @@ bool CommitTransactionSpent(const CWalletTx& wtxNew)
     MainFrameRepaint();
     return true;
 }
-
-
-
 
 bool SendMoney(CScript scriptPubKey, int64 nValue, CWalletTx& wtxNew)
 {

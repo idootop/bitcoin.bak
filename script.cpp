@@ -1,39 +1,3 @@
-// Copyright (c) 2009 Satoshi Nakamoto
-// Distributed under the MIT/X11 software license, see the accompanying
-// file license.txt or http://www.opensource.org/licenses/mit-license.php.
-
-#include "headers.h"
-
-bool CheckSig(vector<unsigned char> vchSig, vector<unsigned char> vchPubKey, CScript scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType);
-
-
-
-typedef vector<unsigned char> valtype;
-static const valtype vchFalse(0);
-static const valtype vchZero(0);
-static const valtype vchTrue(1, 1);
-static const CBigNum bnZero(0);
-static const CBigNum bnOne(1);
-static const CBigNum bnFalse(0);
-static const CBigNum bnTrue(1);
-
-
-bool CastToBool(const valtype& vch)
-{
-    return (CBigNum(vch) != bnZero);
-}
-
-void MakeSameSize(valtype& vch1, valtype& vch2)
-{
-    // Lengthen the shorter one
-    if (vch1.size() < vch2.size())
-        vch1.resize(vch2.size(), 0);
-    if (vch2.size() < vch1.size())
-        vch2.resize(vch1.size(), 0);
-}
-
-
-
 //
 // Script is a stack machine (like Forth) that evaluates a predicate
 // returning a bool indicating valid or not.  There are no loops.

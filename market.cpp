@@ -1,28 +1,5 @@
-// Copyright (c) 2009 Satoshi Nakamoto
-// Distributed under the MIT/X11 software license, see the accompanying
-// file license.txt or http://www.opensource.org/licenses/mit-license.php.
-
-#include "headers.h"
-
-
-
-
-
-
-
-
-
-
-//
-// Global state variables
-//
-
 //// later figure out how these are persisted
 map<uint256, CProduct> mapMyProducts;
-
-
-
-
 map<uint256, CProduct> mapProducts;
 CCriticalSection cs_mapProducts;
 

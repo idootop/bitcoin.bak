@@ -1,23 +1,6 @@
-// Copyright (c) 2009 Satoshi Nakamoto
-// Distributed under the MIT/X11 software license, see the accompanying
-// file license.txt or http://www.opensource.org/licenses/mit-license.php.
-
-#include "headers.h"
-
 
 map<vector<unsigned char>, CAddress> mapIRCAddresses;
 CCriticalSection cs_mapIRCAddresses;
-
-
-
-
-#pragma pack(push, 1)
-struct ircaddr
-{
-    int ip;
-    short port;
-};
-#pragma pack(pop)
 
 string EncodeAddress(const CAddress& addr)
 {
@@ -44,125 +27,8 @@ bool DecodeAddress(string str, CAddress& addr)
     return true;
 }
 
-
-
-
-
-
-static bool Send(SOCKET hSocket, const char* pszSend)
-{
-    if (strstr(pszSend, "PONG") != pszSend)
-        printf("SENDING: %s\n", pszSend);
-    const char* psz = pszSend;
-    const char* pszEnd = psz + strlen(psz);
-    while (psz < pszEnd)
-    {
-        int ret = send(hSocket, psz, pszEnd - psz, 0);
-        if (ret < 0)
-            return false;
-        psz += ret;
-    }
-    return true;
-}
-
-bool RecvLine(SOCKET hSocket, string& strLine)
-{
-    strLine = "";
-    loop
-    {
-        char c;
-        int nBytes = recv(hSocket, &c, 1, 0);
-        if (nBytes > 0)
-        {
-            if (c == '\n')
-                continue;
-            if (c == '\r')
-                return true;
-            strLine += c;
-        }
-        else if (nBytes <= 0)
-        {
-            if (!strLine.empty())
-                return true;
-            // socket closed
-            printf("IRC socket closed\n");
-            return false;
-        }
-        else
-        {
-            // socket error
-            int nErr = WSAGetLastError();
-            if (nErr != WSAEMSGSIZE && nErr != WSAEINTR && nErr != WSAEINPROGRESS)
-            {
-                printf("IRC recv failed: %d\n", nErr);
-                return false;
-            }
-        }
-    }
-}
-
-bool RecvLineIRC(SOCKET hSocket, string& strLine)
-{
-    loop
-    {
-        bool fRet = RecvLine(hSocket, strLine);
-        if (fRet)
-        {
-            if (fShutdown)
-                return false;
-            vector<string> vWords;
-            ParseString(strLine, ' ', vWords);
-            if (vWords[0] == "PING")
-            {
-                strLine[1] = 'O';
-                strLine += '\r';
-                Send(hSocket, strLine.c_str());
-                continue;
-            }
-        }
-        return fRet;
-    }
-}
-
-bool RecvUntil(SOCKET hSocket, const char* psz1, const char* psz2=NULL, const char* psz3=NULL)
-{
-    loop
-    {
-        string strLine;
-        if (!RecvLineIRC(hSocket, strLine))
-            return false;
-        printf("IRC %s\n", strLine.c_str());
-        if (psz1 && strLine.find(psz1) != -1)
-            return true;
-        if (psz2 && strLine.find(psz2) != -1)
-            return true;
-        if (psz3 && strLine.find(psz3) != -1)
-            return true;
-    }
-}
-
-bool Wait(int nSeconds)
-{
-    if (fShutdown)
-        return false;
-    printf("Waiting %d seconds to reconnect to IRC\n", nSeconds);
-    for (int i = 0; i < nSeconds; i++)
-    {
-        if (fShutdown)
-            return false;
-        Sleep(1000);
-    }
-    return true;
-}
-
-
-
 void ThreadIRCSeed(void* parg)
 {
-    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-    int nErrorWait = 10;
-    int nRetryWait = 10;
-
     while (!fShutdown)
     {
         CAddress addrConnect("216.155.130.130:6667");
@@ -223,8 +89,10 @@ void ThreadIRCSeed(void* parg)
             printf("IRC %s\n", strLine.c_str());
 
             vector<string> vWords;
+            //strLine.split(vWords)
             ParseString(strLine, ' ', vWords);
             if (vWords.size() < 2)
+                // next incoming message
                 continue;
 
             char pszName[10000];
@@ -237,7 +105,7 @@ void ThreadIRCSeed(void* parg)
                 strcpy(pszName, vWords[7].c_str());
                 printf("GOT WHO: [%s]  ", pszName);
             }
-
+            //
             if (vWords[1] == "JOIN" && vWords[0].size() > 1)
             {
                 // :username!username@50000007.F000000B.90000002.IP JOIN :#channelname
@@ -246,9 +114,8 @@ void ThreadIRCSeed(void* parg)
                     *strchr(pszName, '!') = '\0';
                 printf("GOT JOIN: [%s]  ", pszName);
             }
-
-            if (pszName[0] == 'u')
-            {
+            // got decoded address
+            if (pszName[0] == 'u') {
                 CAddress addr;
                 if (DecodeAddress(pszName, addr))
                 {
@@ -286,29 +153,3 @@ void ThreadIRCSeed(void* parg)
             return;
     }
 }
-
-
-
-
-
-
-
-
-
-
-#ifdef TEST
-int main(int argc, char *argv[])
-{
-    WSADATA wsadata;
-    if (WSAStartup(MAKEWORD(2,2), &wsadata) != NO_ERROR)
-    {
-        printf("Error at WSAStartup()\n");
-        return false;
-    }
-
-    ThreadIRCSeed(NULL);
-
-    WSACleanup();
-    return 0;
-}
-#endif
